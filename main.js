@@ -6,41 +6,76 @@ app.use(bodyParser.json());
 
 let playlist = [];
 
-app.post("/add-song", (req, res) => {
-  const { title, artists, url } = req.body;
-  if (!title || !artists || !url) {
-    return res
-      .status(400)
-      .json({ error: "Title, Artists, and URL are required fields." });
+class Song {
+  constructor(title, artists, url) {
+    this.title = title;
+    this.artists = artists;
+    this.url = url;
+    this.playCount = 0;
+  }
+}
+
+class Playlist {
+  static addSong(title, artists, url) {
+    if (!title || !artists || !url) {
+      throw new Error("Title, Artists, and URL are required fields.");
+    }
+
+    const newSong = new Song(title, artists, url);
+    playlist.push(newSong);
   }
 
-  const newSong = {
-    title: title,
-    artists: artists,
-    url: url,
-  };
+  static playSong(songIndex) {
+    if (
+      !songIndex ||
+      isNaN(songIndex) ||
+      songIndex < 0 ||
+      songIndex >= playlist.length
+    ) {
+      throw new Error("Invalid song index.");
+    }
 
-  playlist.push(newSong);
-  res.json({ message: "Song added to playlist successfully." });
+    playlist[songIndex].playCount++;
+    return playlist[songIndex];
+  }
+
+  static getPlaylist() {
+    return playlist;
+  }
+
+  static getSortedPlaylistByPlayCount() {
+    return playlist.slice().sort((a, b) => b.playCount - a.playCount);
+  }
+}
+
+app.post("/add-song", (req, res) => {
+  try {
+    const { title, artists, url } = req.body;
+    Playlist.addSong(title, artists, url);
+    res.json({ message: "Song added to playlist successfully." });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
 });
 
 app.get("/play-song", (req, res) => {
-  const songIndex = req.query.index;
-  if (
-    !songIndex ||
-    isNaN(songIndex) ||
-    songIndex < 0 ||
-    songIndex >= playlist.length
-  ) {
-    return res.status(400).json({ error: "Invalid song index." });
+  try {
+    const songIndex = req.query.index;
+    const songToPlay = Playlist.playSong(songIndex);
+    res.json({ message: "Playing song:", song: songToPlay });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
   }
-
-  const songToPlay = playlist[songIndex];
-  res.json({ message: "Playing song:", song: songToPlay });
 });
 
 app.get("/get-playlist", (req, res) => {
+  const playlist = Playlist.getPlaylist();
   res.json({ playlist: playlist });
+});
+
+app.get("/get-playlist/sorted-by-play-count", (req, res) => {
+  const sortedPlaylist = Playlist.getSortedPlaylistByPlayCount();
+  res.json({ playlist: sortedPlaylist });
 });
 
 const port = 3000;
